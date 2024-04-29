@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+
+<head>
+  <meta charset="utf-8" />
+  <meta content="width=device-width, initial-scale=1, minimum-scale=1.0, user-scalable=no" name="viewport" />
+  <meta name="robots" content="noindex,nofollow,noarchive" />
+  <meta name="theme-color" content="white" />
+  <link rel="manifest" href="manifest.json">
+  <script src='holiday.js'></script>
+  <script src='main.js'></script>
+  <link rel="stylesheet" href="style.css">
+  <link href='https://cdn.jsdelivr.net/npm/fullcalendar@5.11.3/main.min.css' rel='stylesheet' />
+  <script src='https://cdn.jsdelivr.net/npm/fullcalendar@5.11.3/main.min.js'></script>
+</head>
+
+<body>
+
+  <div class="table-container" id="timetable-container" style="display: none;">
+    <table class="table">
+      <tbody id="timetable">
+      </tbody>
+    </table>
+  </div>
+
+
+  <div class="table-container" id="todo-container" style="display: none;">
+    <table class="table">
+      <tbody id="todo">
+      </tbody>
+    </table>
+    <a href='studyplus:///' class="studyplus">+</a>
+  </div>
+
+
+
+  <div class="form" id="form">
+    <div class="radio" style="margin-top: 6vh;">
+      <div>
+        <div><input type="radio" name="subject" data-col="#20b2aa" onchange="change_date2()" checked><label>無指定</label></div>
+      </div>
+    </div>
+
+    <div class="radio" style="margin-top: 6vh;">
+      <div>
+        <div><input type="radio" name="content"><label>プリント</label></div>
+        <div><input type="radio" name="content"><label>ワーク</label></div>
+        <div><input type="radio" name="content" checked><label>その他</label></div>
+      </div>
+    </div>
+    <input type="text" class="other" id="other_content" placeholder="内容">
+
+    <div class="other2" style="margin-top: 7vh;">
+      <input type="date" id="date_start" style="width: 45%; height: 34px; font-size: 18px; appearance: none;">
+      〜
+      <input type="date" id="date_end" onchange="ishomework=false; this.style.backgroundColor=''" style="width: 45%; height: 34px; font-size: 18px; appearance: none;">
+    </div>
+
+    <div class="radio" style="margin-top: 7vh;">
+      <div>
+        <div><input type="radio" name="time"><label>0分</label></div>
+        <div><input type="radio" name="time"><label>15分</label></div>
+        <div><input type="radio" name="time" checked><label>30分</label></div>
+        <div><input type="radio" name="time"><label>45分</label></div>
+        <div><input type="radio" name="time"><label>60分</label></div>
+        <div><input type="radio" name="time"><label>その他</label></div>
+      </div>
+    </div>
+    <div class="other2" style="margin-top: 1.5vh;">
+      <input type="number" id="other_time" placeholder="分" inputmode="numeric" style="width: 45%; font-size: 18px;">
+      ×
+      <input type="text" id="amount" inputmode="numeric" style="width: 45%; font-size: 18px;">
+    </div>
+
+    <a class="submit" ontouchstart="" onclick="submit()">Submit</a>
+  </div>
+
+
+
+  <div class="calendar-div" id="calendar-div" style="display: none;">
+    <div id='calendar-container'>
+      <div id='calendar'></div>
+    </div>
+    <div class="cl-bt">
+      <a ontouchend="calendar.today()" class="tab">Today</a>
+      <a id="month" ontouchend="change_cl('month')" class="tab">Month</a>
+      <a id="4day" ontouchend="change_cl('4day')" class="tab" style="background-color: #000; color: #fff">4 Days</a>
+    </div>
+  </div>
+
+
+
+  <div class="menu-buttons">
+    <div class="menu-button" ontouchend="change_page('form')">
+      <img src="icon/icon1.png" class="menu-icon">
+      <div class="menu-text">追加</div>
+    </div>
+    <div class="menu-button" ontouchend="change_page('todo-container')">
+      <img src="icon/icon2.png" class="menu-icon">
+      <div class="menu-text">ToDo</div>
+    </div>
+    <div class="menu-button" ontouchend="change_page('calendar-div')">
+      <img src="icon/icon3.png" class="menu-icon">
+      <div class="menu-text">calendar</div>
+    </div>
+  </div>
+
+</body>
+
+</html>
