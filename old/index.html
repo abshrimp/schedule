@@ -23,6 +23,14 @@
   </div>
 
 
+  <div class="table-container" id="afterschool-container" style="display: none;">
+    <table class="table">
+      <tbody id="afterschool">
+      </tbody>
+    </table>
+  </div>
+
+
   <div class="table-container" id="todo-container" style="display: none;">
     <table class="table">
       <tbody id="todo">
@@ -34,11 +42,35 @@
 
 
   <div class="form" id="form">
-
-    <div class="radio" style="margin-top: 12vh;">
+    <div class="radio" style="margin-top: 6vh;">
       <div>
-        <div><input type="radio" name="content"><label>レポート</label></div>
-        <div><input type="radio" name="content"><label>復習</label></div>
+        <div><input type="radio" name="subject" data-col="#4169e1" onchange="change_date(0)"><label>数1</label></div>
+        <div><input type="radio" name="subject" data-col="#4169e1" onchange="change_date(1)"><label>数2</label></div>
+        <div><input type="radio" name="subject" data-col="#4169e1" onchange="change_date(2)"><label>数3</label></div>
+        <div><input type="radio" name="subject" data-col="#ff6347" onchange="change_date(3)"><label>現文</label></div>
+        <div><input type="radio" name="subject" data-col="#ff6347" onchange="change_date(4)"><label>古典</label></div>
+      </div>
+      <div>
+        <div><input type="radio" name="subject" data-col="#228b22" onchange="change_date(5)"><label>英理</label></div>
+        <div><input type="radio" name="subject" data-col="#228b22" onchange="change_date(6)"><label>英表</label></div>
+        <div><input type="radio" name="subject" data-col="#228b22" onchange="change_date(7)"><label>英表+</label></div>
+        <div><input type="radio" name="subject" data-col="#9400d3" onchange="change_date(8)"><label>物理a</label></div>
+        <div><input type="radio" name="subject" data-col="#9400d3" onchange="change_date(9)"><label>物理b</label></div>
+      </div>
+      <div>
+        <div><input type="radio" name="subject" data-col="#1e90ff" onchange="change_date(10)"><label>化学a</label></div>
+        <div><input type="radio" name="subject" data-col="#1e90ff" onchange="change_date(11)"><label>化学b</label></div>
+        <div><input type="radio" name="subject" data-col="#ff8c00" onchange="change_date(12)"><label>地理a</label></div>
+        <div><input type="radio" name="subject" data-col="#ff8c00" onchange="change_date(13)"><label>地理b</label></div>
+        <div><input type="radio" name="subject" data-col="#c0c0c0" onchange="change_date(14)"><label>体育</label></div>
+        <div><input type="radio" name="subject" data-col="#20b2aa" onchange="change_date2()" checked><label>無指定</label></div>
+      </div>
+    </div>
+
+    <div class="radio" style="margin-top: 6vh;">
+      <div>
+        <div><input type="radio" name="content"><label>プリント</label></div>
+        <div><input type="radio" name="content"><label>ワーク</label></div>
         <div><input type="radio" name="content" checked><label>その他</label></div>
       </div>
     </div>
@@ -96,6 +128,14 @@
     <div class="menu-button" ontouchend="change_page('calendar-div')">
       <img src="icon/icon3.png" class="menu-icon">
       <div class="menu-text">calendar</div>
+    </div>
+    <div class="menu-button" ontouchend="change_page('timetable-container')">
+      <img src="icon/icon4.png" class="menu-icon">
+      <div class="menu-text">時間割</div>
+    </div>
+    <div class="menu-button" ontouchend="change_page('afterschool-container')">
+      <img src="icon/icon5.png" class="menu-icon">
+      <div class="menu-text">帰宅時間</div>
     </div>
   </div>
 

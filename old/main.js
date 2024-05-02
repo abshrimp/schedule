@@ -1,4 +1,4 @@
-let CLIENT_ID, CLIENT_SECRET, API_KEY, REFRESH_TOKEN, SHEET_ID, TASK_CAL_ID, CAL_ID, GAS_URL, nextclass, cl_data;
+let CLIENT_ID, CLIENT_SECRET, API_KEY, REFRESH_TOKEN, SHEET_ID, TASK_CAL_ID, CAL_ID, GAS_URL, nextclass;
 
 
 const dbName = 'DB';
@@ -101,7 +101,7 @@ function get_access_token() {
     });
 }
 
-function adddata(range, str, todo = false) {
+function adddata(range, str, todo = false, changesubject = false) {
     _token.get((token) => {
         let data = { "values": [[str]] }
         let xhr = new XMLHttpRequest();
@@ -114,41 +114,61 @@ function adddata(range, str, todo = false) {
             }
         }
         xhr.send(JSON.stringify(data));
+
+        if (changesubject) {
+            let xhr4 = new XMLHttpRequest();
+            xhr4.open('GET', 'https://content-sheets.googleapis.com/v4/spreadsheets/' + SHEET_ID + '/values/duration!D3%3AD?key=' + API_KEY);
+            xhr4.setRequestHeader('Authorization', 'Bearer ' + token);
+            xhr4.onload = () => {
+                nextclass = JSON.parse(xhr4.response).values;
+            };
+            xhr4.send();
+        }
     });
 }
 
 function getdata() {
     _token.get((token) => {
-        let flag = 0;
-
         let xhr = new XMLHttpRequest();
-        xhr.open('GET', GAS_URL + "?p=cl");
+        xhr.open('GET', 'https://content-sheets.googleapis.com/v4/spreadsheets/' + SHEET_ID + '/values/subject!A3%3AT?key=' + API_KEY);
+        xhr.setRequestHeader('Authorization', 'Bearer ' + token);
         xhr.onload = () => {
-            cl_data = JSON.parse(xhr.response);
-            flag++;
+            let data = JSON.parse(xhr.response).values;
+            make_timetable(data);
+            make_afterschool(data);
         };
         xhr.send();
+
+        let flag = false;
 
         let xhr2 = new XMLHttpRequest();
         xhr2.open('GET', 'https://content-sheets.googleapis.com/v4/spreadsheets/' + SHEET_ID + '/values/ToDo!A2%3AH?key=' + API_KEY);
         xhr2.setRequestHeader('Authorization', 'Bearer ' + token);
         xhr2.onload = () => {
-            flag++;
+            flag = true;
         };
         xhr2.send();
 
         let xhr3 = new XMLHttpRequest();
-        xhr3.open('GET', 'https://content-sheets.googleapis.com/v4/spreadsheets/' + SHEET_ID + '/values/event2!A2%3AC?key=' + API_KEY);
+        xhr3.open('GET', 'https://content-sheets.googleapis.com/v4/spreadsheets/' + SHEET_ID + '/values/daily!A2%3AC?key=' + API_KEY);
         xhr3.setRequestHeader('Authorization', 'Bearer ' + token);
         xhr3.onload = () => {
             let timerId = setInterval(() => {
-                if (flag == 2) {
+                if (flag) {
                     clearInterval(timerId);
                     make_todo(JSON.parse(xhr2.response).values, JSON.parse(xhr3.response).values);
                 }
             }, 10);
         };
         xhr3.send();
+
+        let xhr4 = new XMLHttpRequest();
+        xhr4.open('GET', 'https://content-sheets.googleapis.com/v4/spreadsheets/' + SHEET_ID + '/values/duration!D3%3AD?key=' + API_KEY);
+        xhr4.setRequestHeader('Authorization', 'Bearer ' + token);
+        xhr4.onload = () => {
+            nextclass = JSON.parse(xhr4.response).values;
+        };
+        xhr4.send();
     });
 }
 
@@ -164,10 +184,10 @@ function today() {
 let calendar;
 
 window.onload = function () {
-    window.addEventListener('error', function (e) {
+    window.addEventListener('error', function(e) {
         document.getElementById("other_content").value = e.message;
     })
-
+    
     if ('serviceWorker' in navigator) {
         navigator.serviceWorker.register("/schedule/service-worker.js")
             .then(function (registration) {
@@ -177,7 +197,7 @@ window.onload = function () {
             });
     }
 
-    let calendarEl = document.getElementById('calendar'), drag = false, posi, eventcount = 0;
+    let calendarEl = document.getElementById('calendar'), drag = false, posi;
 
     calendar = new FullCalendar.Calendar(calendarEl, {
         timeZone: 'local',
@@ -236,39 +256,11 @@ window.onload = function () {
             drag = true;
         },
         eventResize: function (info) {
-
-        },
-        eventChange: function (info) {
-            eventcount++;
-            _token.get((token) => {
-                let xhr4 = new XMLHttpRequest();
-                xhr4.open('GET', 'https://content-sheets.googleapis.com/v4/spreadsheets/' + SHEET_ID + '/values/event2!A2%3AC?key=' + API_KEY);
-                xhr4.setRequestHeader('Authorization', 'Bearer ' + token);
-                xhr4.onload = () => {
-                    let events = JSON.parse(xhr4.response).values,
-                        title = info.event.title,
-                        start = info.oldEvent.start.toString(),
-                        end = info.oldEvent.end.toString();
-                    for (let i = 0; i < events.length; i++) {
-                        if (events[i][0] == title && new Date(events[i][1]) == start, new Date(events[i][2]) == end) {
-                            let data = { "values": [[info.event.start.toLocaleString('ja-JP'), info.event.end.toLocaleString('ja-JP')]] }
-                            let xhr = new XMLHttpRequest();
-                            xhr.open('PUT', 'https://content-sheets.googleapis.com/v4/spreadsheets/' + SHEET_ID + '/values/event2!B' + (i + 2) + ':C' + (i + 2) + '?valueInputOption=USER_ENTERED&alt=json&key=' + API_KEY);
-                            xhr.setRequestHeader('Content-Type', 'application/json');
-                            xhr.setRequestHeader('Authorization', 'Bearer ' + token);
-                            xhr.onreadystatechange = function () {
-                                if (this.readyState == 4 && this.status == 200) {
-                                    eventcount--;
-                                    if (eventcount == 0) edit_todo();
-                                }
-                            }
-                            xhr.send(JSON.stringify(data));
-                            break;
-                        }
-                    }
-                };
-                xhr4.send();
-            });
+            let end = info.event.end;
+            let day = Math.floor((end - new Date(today().toLocaleDateString())) / (24 * 60 * 60 * 1000));
+            let time = String(end.getHours()).padStart(2, "0") + ":" + String(end.getMinutes()).padStart(2, "0");
+            adddata("subject!N" + (day + 3), time, true);
+            document.getElementsByClassName("time")[day].value = time;
         },
         businessHours: {
             daysOfWeek: [1, 2, 3, 4, 5],
@@ -331,6 +323,305 @@ function reset_form() {
 }
 
 
+let timetable;
+
+function make_timetable(data) {
+    timetable = data;
+    let tbody = document.getElementById("timetable");
+    let ds = new Date(today().toLocaleDateString());
+    let de = new Date(today().toLocaleDateString());
+    de.setDate(de.getDate() + timetable.length);
+    let week = ["(日)", "(月)", "(火)", "(水)", "(木)", "(金)", "(土)"];
+
+    for (var i = 0; i < data.length; i++) {
+        if (data[i][0] === "") continue;
+
+        let tr = document.createElement('tr');
+
+        let date = document.createElement('td');
+        date.setAttribute("class", "date-row");
+        date.innerText = data[i][0];
+        if (~data[i][0].indexOf('土')) date.style = "color: deepskyblue;"
+        if (~data[i][0].indexOf('日')) date.style = "color: red;"
+        for (let ii = 0; ii < holiday.length; ii++) {
+            let d2 = new Date(holiday[ii].start);
+            if (ds <= d2 && d2 <= de) {
+                if (data[i][0] === (d2.getMonth() + 1) + "/" + d2.getDate() + week[d2.getDay()]) {
+                    date.style = "color: red;";
+                    break;
+                }
+            }
+        }
+        tr.appendChild(date);
+
+        let subjects = document.createElement('td');
+        subjects.setAttribute("class", "table-subjects");
+        for (var ii = 0; ii < 5; ii++) {
+            let input = document.createElement('input');
+            input.setAttribute("class", "subjects-row");
+            input.setAttribute("onchange", "change_timetable(this)");
+            input.type = "text";
+            input.size = "4";
+            input.id = ['c', 'd', 'e', 'f', 'g'][ii] + (i + 3);
+            if (data[i][ii + 7] !== "" && data[i][ii + 7] !== undefined) {
+                input.setAttribute("style", "background-color: #ffebcd;");
+                if (data[i][ii + 7] === "N") input.value = "";
+                else input.value = data[i][ii + 7];
+            }
+            else input.value = data[i][ii + 2];
+            input.setAttribute("data-orig", data[i][ii + 2]);
+            input.setAttribute("data-prev", input.value);
+            subjects.appendChild(input);
+        }
+        if (i === 0) check_subject(subjects);
+        tr.appendChild(subjects);
+        tbody.appendChild(tr);
+    }
+}
+
+function change_timetable(e) {
+    let text = e.value;
+    if (text === "") {
+        e.style = "";
+        e.value = e.dataset.orig;
+    }
+    else e.style = "background-color: #ffebcd;";
+    let prev = [e.dataset.prev, -1],
+        offsety = Number(e.id.slice(1)) - 3,
+        row = e.id[0],
+        offsetx = row === "c" ? 15 : row === "d" ? 16 : row === "e" ? 17 : row === "f" ? 18 : 19,
+        now = [e.value, -1];
+    loop: for (let i = offsety + 1; i < timetable.length; i++) { //同一教科設定あり
+        for (let ii = 15; ii < timetable[i].length; ii++) {
+            if (timetable[i][ii] === prev[0]) {
+                prev = [prev[0], i];
+                break loop;
+            }
+            else if (prev[0] === "総英" && timetable[i][ii] === "異理") {
+                prev = ["異理", i];
+                break loop;
+            }
+            else if (prev[0] === "異理" && timetable[i][ii] === "総英") {
+                prev = ["総英", i];
+                break loop;
+            }
+        }
+    }
+    timetable[offsety][offsetx] = e.value;
+    loop: for (let i = offsety + 1; i < timetable.length; i++) {
+        for (let ii = 15; ii < timetable[i].length; ii++) {
+            if (timetable[i][ii] === now[0]) {
+                now = [now[0], i];
+                break loop;
+            }
+            else if (now[0] === "総英" && timetable[i][ii] === "異理") {
+                now = ["異理", i];
+                break loop;
+            }
+            else if (now[0] === "異理" && timetable[i][ii] === "総英") {
+                now = ["総英", i];
+                break loop;
+            }
+        }
+    }
+    e.dataset.prev = e.value;
+
+    if (now[1] >= 0) {
+        let offset = now[1],
+            day = new Date(today().toLocaleDateString());
+        day.setDate(day.getDate() + offset);
+        day.setHours(day.getHours() + 9);
+        let day2 = new Date(day);
+        day2.setHours(day2.getHours() + 1);
+
+        _token.get((token) => {
+            let xhr = new XMLHttpRequest();
+            xhr.open('GET', 'https://www.googleapis.com/calendar/v3/calendars/' + TASK_CAL_ID + '/events?key=' + API_KEY
+                + '&timeMax=' + encodeURIComponent(day2.toISOString()) + '&timeMin=' + encodeURIComponent(day.toISOString()));
+            xhr.setRequestHeader('Authorization', 'Bearer ' + token);
+            xhr.onload = () => {
+                let date = today(), event = {};
+                date.setDate(date.getDate() + offsety);
+                event.date1 = get_datestr(date);
+                date.setDate(date.getDate() + 1);
+                event.date2 = get_datestr(date);
+
+                let data = JSON.parse(xhr.response).items;
+                for (var i = 0; i < data.length; i++) {
+                    let desc = data[i].desc.split(",");
+                    if (data[i].summary.includes(now[0]) && eval(desc[desc.length - 1])) updateevent(event, data[i].id);
+                }
+            };
+            xhr.send();
+        });
+    }
+
+    if (prev[1] >= 0) {
+        let offset = offsety,
+            day = new Date(today().toLocaleDateString());
+        day.setDate(day.getDate() + offset);
+        day.setHours(day.getHours() + 9);
+        let day2 = new Date(day);
+        day2.setHours(day2.getHours() + 1);
+
+        _token.get((token) => {
+            let xhr = new XMLHttpRequest();
+            xhr.open('GET', 'https://www.googleapis.com/calendar/v3/calendars/' + TASK_CAL_ID + '/events?key=' + API_KEY
+                + '&timeMax=' + encodeURIComponent(day2.toISOString()) + '&timeMin=' + encodeURIComponent(day.toISOString()));
+            xhr.setRequestHeader('Authorization', 'Bearer ' + token);
+            xhr.onload = () => {
+                let date = today(), event = {};
+                date.setDate(date.getDate() + prev[1]);
+                event.date1 = get_datestr(date);
+                date.setDate(date.getDate() + 1);
+                event.date2 = get_datestr(date);
+
+                let data = JSON.parse(xhr.response).items;
+                for (var i = 0; i < data.length; i++) {
+                    let desc = data[i].desc.split(",");
+                    if (data[i].summary.includes(prev[0]) && eval(desc[desc.length - 1])) updateevent(event, data[i].id);
+                }
+            };
+            xhr.send();
+        });
+    }
+
+    adddata("subject!" + e.id.replace('c', 'h').replace('d', 'i').replace('e', 'j').replace('f', 'k').replace('g', 'l'), text, false, true);
+}
+
+function check_subject(s) {
+    let inputs = document.getElementsByName("subject");
+    let subjects = [];
+    for (let i = 0; i < inputs.length; i++) {
+        subjects.push(inputs[i].nextElementSibling.innerText);
+    }
+    let today_subjects = [];
+    for (var i = 0; i < 5; i++) if (s.children[i].value !== " " && s.children[i].value !== "ㅤ" && s.children[i].value !== "　") today_subjects.push(s.children[i].value);
+    let now = new Date();
+    let time = [
+        new Date(new Date().toLocaleDateString() + " 9:50"),
+        new Date(new Date().toLocaleDateString() + " 11:10"),
+        new Date(new Date().toLocaleDateString() + " 13:20"),
+        new Date(new Date().toLocaleDateString() + " 14:30")
+    ];
+    let subject = -1;
+    for (var i = 0; i < today_subjects.length; i++) {
+        if (i === today_subjects.length - 1) subject = subjects.indexOf(today_subjects[i]);
+        if (now < time[i]) {
+            subject = subjects.indexOf(today_subjects[i]);
+            break;
+        }
+    }
+    if (subject >= 0) {
+        document.getElementsByName("subject")[subject].checked = true;
+        let timerId = setInterval(() => {
+            if (nextclass !== undefined) {
+                clearInterval(timerId);
+                change_date(subject);
+            }
+        }, 10);
+    }
+}
+
+
+function make_afterschool(data) {
+    let tbody = document.getElementById("afterschool");
+    let ds = new Date(today().toLocaleDateString());
+    let de = new Date(today().toLocaleDateString());
+    de.setDate(de.getDate() + timetable.length);
+    let week = ["(日)", "(月)", "(火)", "(水)", "(木)", "(金)", "(土)"];
+
+    for (var i = 0; i < data.length; i++) {
+        if (data[i][0] === "") continue;
+
+        let tr = document.createElement('tr');
+
+        let date = document.createElement('td');
+        date.setAttribute("class", "date-row");
+        date.innerText = data[i][0];
+        if (~data[i][0].indexOf('土')) date.style = "color: deepskyblue;"
+        if (~data[i][0].indexOf('日')) date.style = "color: red;"
+        for (let ii = 0; ii < holiday.length; ii++) {
+            let d2 = new Date(holiday[ii].start);
+            if (ds <= d2 && d2 <= de) {
+                if (data[i][0] === (d2.getMonth() + 1) + "/" + d2.getDate() + week[d2.getDay()]) {
+                    date.style = "color: red;";
+                    break;
+                }
+            }
+        }
+        tr.appendChild(date);
+
+
+        let td = document.createElement('td');
+        td.setAttribute("class", "table-afterschool")
+
+        let div1 = document.createElement('div');
+        div1.setAttribute("class", "table-button")
+        div1.innerHTML = '<label style="padding-top: 2px;">📖</label><label>＼</label>';
+        let cram = document.createElement('input');
+        cram.setAttribute("onchange", "change_afterschool(this)")
+        cram.type = "checkbox";
+        cram.checked = data[i][12] === "TRUE";
+        cram.id = "m" + (i + 3);
+        div1.appendChild(cram);
+        td.appendChild(div1);
+
+        let time = document.createElement('input');
+        time.setAttribute("onblur", "adddata('subject!' + this.id, this.value, true)")
+        time.setAttribute("class", "time")
+        time.type = "time";
+        if (data[i][13]) {
+            let time_str = data[i][13].length === 4 ? "0" + data[i][13] : data[i][13];
+            time.value = time_str;
+        }
+        if (data[i][12] === "TRUE") time.style = "color: red;";
+        time.id = "n" + (i + 3);
+        td.appendChild(time);
+
+        if (i < 14) {
+            let offset = new Date(today().toDateString());
+            offset.setDate(offset.getDate() + i);
+            let start = new Date(offset.toLocaleDateString() + " 09:00");
+            if (time.value === "") time.value = "13:30";
+            let end = new Date(offset.toLocaleDateString() + " " + time.value);
+            if (start.toTimeString() !== end.toTimeString()) {
+                calendar.addEvent({
+                    title: (data[i][12] === "TRUE") ? "学校" : "学校+東進着",
+                    start: start,
+                    end: end,
+                    color: "#696969",
+                    editable: true,
+                    startEditable: false,
+                    eventStartEditable: false,
+                    durationEditable: true,
+                    display: 'block'
+                });
+            }
+        }
+
+        let div2 = document.createElement('div');
+        div2.setAttribute("class", "table-button")
+        div2.innerHTML = '<label style="padding-bottom: 3px;">🍙</label><label>＼</label>';
+        let dinner = document.createElement('input');
+        dinner.setAttribute("onchange", "adddata('subject!' + this.id, this.checked, true)")
+        dinner.type = "checkbox";
+        dinner.checked = data[i][14] === "TRUE";
+        dinner.id = "o" + (i + 3);
+        div2.appendChild(dinner);
+        td.appendChild(div2);
+
+        tr.appendChild(td);
+        tbody.appendChild(tr);
+    }
+}
+
+function change_afterschool(e) {
+    if (e.checked) e.parentElement.parentElement.children[1].style = "color: red;";
+    else e.parentElement.parentElement.children[1].style = "";
+    adddata("subject!" + e.id, e.checked, true);
+}
+
 //ToDo 日常
 function make_todo(data, data2) {
     if (data === undefined) data = [];
@@ -341,31 +632,10 @@ function make_todo(data, data2) {
             start: new Date(data2[i][1]),
             end: new Date(data2[i][2]),
             color: "#696969",
-            editable: true,
-            display: "list-item"
+            editable: false,
+            display: 'block'
         });
     }
-
-    for (var i = 0; i < cl_data.length; i++) {
-        if (cl_data[i][1]) {
-            calendar.addEvent({
-                title: cl_data[i][0],
-                start: new Date(cl_data[i][2]).toLocaleDateString("ja-JP", {year: "numeric",month: "2-digit",day: "2-digit"}).replaceAll("/", "-"),
-                display: "block",
-                color: "#edc14b"
-            });
-        } else {
-            calendar.addEvent({
-                title: cl_data[i][0],
-                start: new Date(cl_data[i][2]),
-                end: new Date(cl_data[i][3]),
-                color: "#edc14b",
-                editable: false,
-                display: 'block'
-            });
-        }
-    }
-    
     for (var i = 0; i < holiday.length; i++) {
         calendar.addEvent(holiday[i]);
     }
@@ -391,19 +661,19 @@ function make_todo(data, data2) {
         }
     });
 
-    let day = "";
+    let day = new Date(0).toLocaleDateString();
     let tbody = document.getElementById("todo");
     for (var i = 0; i < data.length; i++) {
         //if (data[i][0] === "") continue;
 
-        let color = isNaN(data[i][0][data[i][0].length - 1]) ? "#20b2aa" : "#e25d33";
-        /*for (let j = 0; j < subjects.length; j++) {
+        let color = "";
+        for (let j = 0; j < subjects.length; j++) {
             if (data[i][0].includes(subjects[j][0])) {
                 color = subjects[j][1];
                 break;
             }
             if (j == subjects.length - 1) color = subjects[subjects.length - 1][1]
-        }*/
+        }
 
         if (data[i][1] != 0) {
             calendar.addEvent({
@@ -416,9 +686,8 @@ function make_todo(data, data2) {
             });
         }
 
-        let day2 = new Date(data[i][9]).toLocaleDateString("ja-JP", {year: "numeric",month: "2-digit", day: "2-digit"});
-        if (day !== day2) {
-            day = day2
+        if (day !== data[i][9]) {
+            day = data[i][9];
             let tr = document.createElement('tr');
             let th = document.createElement('th');
             th.setAttribute("colspan", "4");
@@ -648,12 +917,12 @@ function submit() {
     }
 
     let event = {};
-    /*let subject = get_val('subject');
+    let subject = get_val('subject');
     if (subject[0] == "総英" || subject[0] == "異理") { //区別無し教科設定
         if (nextclass[4][0] < nextclass[5][0]) subject = ["総英", 4];
         else subject = ["異理", 5];
-    }*/
-    event.title = /*(get_val('subject')[0] == "無指定") ? get_val('content')[0] : subject[0] + " " +*/ get_val('content')[0];
+    }
+    event.title = (get_val('subject')[0] == "無指定") ? get_val('content')[0] : subject[0] + " " + get_val('content')[0];
 
     set_date(event, "date_end");
 
@@ -727,6 +996,8 @@ function change_date2() {
 }
 
 function change_page(id) {
+    document.getElementById("timetable-container").style = "display: none;";
+    document.getElementById("afterschool-container").style = "display: none;";
     document.getElementById("todo-container").style = "display: none;";
     document.getElementById("form").style = "display: none;";
     document.getElementById("calendar-div").style = "display: none;";
@@ -757,6 +1028,14 @@ function edit_todo() {
         document.getElementById("todo").innerHTML = "";
 
         _token.get((token) => {
+            let xhr = new XMLHttpRequest();
+            xhr.open('GET', 'https://content-sheets.googleapis.com/v4/spreadsheets/' + SHEET_ID + '/values/subject!A3%3AO?key=' + API_KEY);
+            xhr.setRequestHeader('Authorization', 'Bearer ' + token);
+            xhr.onload = () => {
+                flag++
+            };
+            xhr.send();
+
             let xhr2 = new XMLHttpRequest(), flag = false;
             xhr2.open('GET', 'https://content-sheets.googleapis.com/v4/spreadsheets/' + SHEET_ID + '/values/ToDo!A2%3AH?key=' + API_KEY);
             xhr2.setRequestHeader('Authorization', 'Bearer ' + token);
@@ -766,15 +1045,37 @@ function edit_todo() {
             xhr2.send();
 
             let xhr3 = new XMLHttpRequest();
-            xhr3.open('GET', 'https://content-sheets.googleapis.com/v4/spreadsheets/' + SHEET_ID + '/values/event2!A2%3AC?key=' + API_KEY);
+            xhr3.open('GET', 'https://content-sheets.googleapis.com/v4/spreadsheets/' + SHEET_ID + '/values/daily!A2%3AC?key=' + API_KEY);
             xhr3.setRequestHeader('Authorization', 'Bearer ' + token);
             xhr3.onload = () => {
                 let timerId = setInterval(() => {
-                    if (flag === 1) {
+                    if (flag === 2) {
                         clearInterval(timerId);
                         nowloading--;
                         if (nowloading === 0) {
                             make_todo(JSON.parse(xhr2.response).values, JSON.parse(xhr3.response).values);
+                            let data = JSON.parse(xhr.response).values;
+                            for (var i = 0; i < 14; i++) {
+                                let time_str = data[i][13].length === 4 ? "0" + data[i][13] : data[i][13];
+                                let offset = new Date(today().toDateString());
+                                offset.setDate(offset.getDate() + i);
+                                let start = new Date(offset.toLocaleDateString() + " 09:00");
+                                if (time_str === "") time_str = "13:30";
+                                let end = new Date(offset.toLocaleDateString() + " " + time_str);
+                                if (start.toTimeString() !== end.toTimeString()) {
+                                    calendar.addEvent({
+                                        title: (data[i][12] === "TRUE") ? "学校" : "学校+東進着",
+                                        start: start,
+                                        end: end,
+                                        color: "#696969",
+                                        editable: true,
+                                        startEditable: false,
+                                        eventStartEditable: false,
+                                        durationEditable: true,
+                                        display: 'block'
+                                    });
+                                }
+                            }
                             for (var i = 0; i < holiday.length; i++) {
                                 calendar.addEvent(holiday[i]);
                             }
