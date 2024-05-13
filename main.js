@@ -444,7 +444,7 @@ function make_todo(data, data2) {
         tr.appendChild(td);
 
         td = document.createElement('td');
-        if (data[i][2] == "") td.innerText = data[i][3] + "/" + data[i][1];
+        if (data[i][2] == "") td.innerText = data[i][3] + "/" + data[i][1] + "m";
         else td.innerText = data[i][3] + "/" + data[i][2];
         if (data[i][3] !== "0") td.style = "color: red";
         tr.appendChild(td);
